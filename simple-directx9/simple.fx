@@ -117,8 +117,22 @@ float4 PS(VSOut i) : COLOR
     float2 uvP = baseUV + (h * g_parallaxScale + g_parallaxBias) * (Vts.xy / max(Vts.z, 1e-3));
 
     // テクスチャと法線
+//    float3 albedo = tex2D(sColor, uvP).rgb;
+//    float3 nTS = tex2D(sNormal, uvP).rgb * 2.0 - 1.0;
+    // --- sample maps ---
     float3 albedo = tex2D(sColor, uvP).rgb;
-    float3 nTS = tex2D(sNormal, uvP).rgb * 2.0 - 1.0;
+
+// DXT5nm のデコード（A=nx, G=ny）
+    float4 nTex = tex2D(sNormal, uvP);
+    float nx = nTex.a * 2.0 - 1.0;
+    float ny = nTex.g * 2.0 - 1.0;
+// 必要なら反転（OpenGL準拠→DirectX）
+    nx = /*g_flipRed?*/-nx; // 反転したい時は nx = -nx;
+    ny = /*g_flipGreen?*/-ny; // 反転したい時は ny = -ny;
+
+// z を再構成して正規化
+    float nz = sqrt(saturate(1.0 - nx * nx - ny * ny));
+    float3 nTS = normalize(float3(nx, ny, nz));
     nTS.x = lerp(nTS.x, -nTS.x, saturate(g_flipRed));
     nTS.y = lerp(nTS.y, -nTS.y, saturate(g_flipGreen));
     nTS = normalize(nTS);

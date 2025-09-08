@@ -253,7 +253,7 @@ void Render()
     D3DXVECTOR4 eyePos(eye.x, eye.y, eye.z, 1.0f);
     g_pEffect->SetVector("g_eyePos", &eyePos);
 
-    D3DXVECTOR4 lightDir = D3DXVECTOR4(0.2f, 1.0f, 0.4f, 0.0f); // ワールド方向
+    D3DXVECTOR4 lightDir = D3DXVECTOR4(0.2f, -1.0f, 0.4f, 0.0f); // ワールド方向
     D3DXVec4Normalize(&lightDir, &lightDir);
     g_pEffect->SetVector("g_lightDirWorld", &lightDir);
 
