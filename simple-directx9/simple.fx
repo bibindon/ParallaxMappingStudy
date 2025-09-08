@@ -12,10 +12,10 @@ float g_parallaxScale = 0.04f; // 0.02~0.06
 float g_parallaxBias = -0.02f; // usually -0.5*scale
 
 // === Lighting knobs (明るさ調整用) ===
-float3 g_ambientColor = float3(0.55, 0.55, 0.55); // ベースの明るさ
+float3 g_ambientColor = float3(0.25, 0.25, 0.25); // ベースの明るさ
 float3 g_lightColor = float3(3.0, 3.0, 3.0); // 直射の色
-float g_diffuseGain = 3.0; // 直射を増やす倍率（1.0~3.0）
-float g_flipGreen = 1.0; // 1.0 にすると Normal.Y を反転（OpenGL系法線マップ対策）
+float g_diffuseGain = 2.0; // 直射を増やす倍率（1.0~3.0）
+float g_flipGreen = 0.0; // 1.0 にすると Normal.Y を反転（OpenGL系法線マップ対策）
 
 // Textures
 texture g_texColor;
