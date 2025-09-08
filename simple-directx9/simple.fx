@@ -1,5 +1,5 @@
-// simple.fx — Parallax Offset Mapping (color + normal + height)
-// Tangent basis is built per-pixel from ddx/ddy (ps_3_0 required).
+// simple.fx — Parallax Offset Mapping (brighten knobs + green-flip)
+// ps_3_0 / TBN from ddx/ddy
 
 float4x4 g_matWorldViewProj;
 float4x4 g_matWorld;
@@ -7,17 +7,19 @@ float4x4 g_matWorld;
 float4 g_eyePos; // world
 float4 g_lightDirWorld; // world (directional, normalized)
 
-// Parallax parameters
+// === Parallax params ===
 float g_parallaxScale = 0.04f; // 0.02~0.06
-float g_parallaxBias = -0.02f; // typically -0.5 * scale
+float g_parallaxBias = -0.02f; // usually -0.5*scale
 
-// Ambient / light color (お好みで)
-float3 g_ambientColor = float3(0.38, 0.38, 0.38);
-float3 g_lightColor = float3(1.0, 1.0, 1.0);
+// === Lighting knobs (明るさ調整用) ===
+float3 g_ambientColor = float3(0.55, 0.55, 0.55); // ベースの明るさ
+float3 g_lightColor = float3(3.0, 3.0, 3.0); // 直射の色
+float g_diffuseGain = 3.0; // 直射を増やす倍率（1.0~3.0）
+float g_flipGreen = 1.0; // 1.0 にすると Normal.Y を反転（OpenGL系法線マップ対策）
 
 // Textures
 texture g_texColor;
-texture g_texNormal; // tangent-space normal (RGB)
+texture g_texNormal; // tangent-space normal (RGB in [0,1])
 texture g_texHeight; // height (use .r)
 
 sampler2D sColor = sampler_state
@@ -54,7 +56,6 @@ struct VSIn
     float3 normal : NORMAL0;
     float2 uv : TEXCOORD0;
 };
-
 struct VSOut
 {
     float4 pos : POSITION;
@@ -68,7 +69,7 @@ VSOut VS(VSIn v)
     VSOut o;
     o.pos = mul(v.pos, g_matWorldViewProj);
     o.worldPos = mul(v.pos, g_matWorld).xyz;
-    // 等方スケール前提。非等方スケールなら逆転置行列に差し替え。
+    // 等方スケール前提（非等方なら逆転置行列に変更）
     o.worldNorm = normalize(mul(v.normal, (float3x3) g_matWorld));
     o.uv = v.uv;
     return o;
@@ -77,48 +78,43 @@ VSOut VS(VSIn v)
 // TBN を PS で構築
 void BuildTBN(float3 wp, float3 wn, float2 uv, out float3 T, out float3 B, out float3 N)
 {
-    float3 dp1 = ddx(wp);
-    float3 dp2 = ddy(wp);
-    float2 duv1 = ddx(uv);
-    float2 duv2 = ddy(uv);
-
-    float inv = 1.0 / (duv1.x * duv2.y - duv1.y * duv2.x);
-
-    T = normalize((dp1 * duv2.y - dp2 * duv1.y) * inv);
-    B = normalize((dp2 * duv1.x - dp1 * duv2.x) * inv);
-    N = normalize(wn); // 幾何ノーマル
+    float3 dp1 = ddx(wp), dp2 = ddy(wp);
+    float2 du1 = ddx(uv), du2 = ddy(uv);
+    float inv = 1.0 / (du1.x * du2.y - du1.y * du2.x);
+    T = normalize((dp1 * du2.y - dp2 * du1.y) * inv);
+    B = normalize((dp2 * du1.x - dp1 * du2.x) * inv);
+    N = normalize(wn);
 }
 
 float4 PS(VSOut i) : COLOR
 {
-    // --- TBN / view & light ---
+    // --- build TBN, view/light ---
     float3 T, B, Nw;
     BuildTBN(i.worldPos, i.worldNorm, i.uv, T, B, Nw);
-
     float3x3 TBN = float3x3(T, B, Nw);
 
     float3 Vw = (g_eyePos.xyz - i.worldPos);
-    float3 Vts = mul(Vw, transpose(TBN)); // to tangent space
-    Vts = normalize(Vts);
-
-    float3 Lw = normalize(-g_lightDirWorld.xyz); // directional light
+    float3 Vts = normalize(mul(Vw, transpose(TBN)));
+    float3 Lw = normalize(-g_lightDirWorld.xyz); // light travels along -dir
     float3 Lts = mul(Lw, transpose(TBN));
 
-    // --- Parallax offset ---
-    float h = tex2D(sHeight, i.uv).r; // use R as height
-    float2 parallax = (h * g_parallaxScale + g_parallaxBias) * (Vts.xy / max(Vts.z, 1e-3));
-    float2 uvP = i.uv + parallax;
+    // --- parallax offset ---
+    float h = tex2D(sHeight, i.uv).r;
+    float2 uvP = i.uv + (h * g_parallaxScale + g_parallaxBias) * (Vts.xy / max(Vts.z, 1e-3));
 
-    // --- Sample maps ---
+    // --- sample maps ---
     float3 albedo = tex2D(sColor, uvP).rgb;
     float3 nTS = tex2D(sNormal, uvP).rgb * 2.0 - 1.0;
-    nTS = normalize(nTS);
 
-    // 法線をワールドへ戻してからライティング（Lambert）
+    // Gチャンネル反転トグル（OpenGL法線→DirectX変換）
+    nTS.y = lerp(nTS.y, -nTS.y, saturate(g_flipGreen));
+
+    nTS = normalize(nTS);
     float3 nW = normalize(mul(nTS, TBN));
 
+    // Lambert
     float NdotL = saturate(dot(nW, Lw));
-    float3 diff = g_lightColor * NdotL;
+    float3 diff = g_lightColor * (NdotL * g_diffuseGain);
 
     float3 color = albedo * (g_ambientColor + diff);
     return float4(saturate(color), 1.0);

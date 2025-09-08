@@ -217,7 +217,7 @@ void Render()
     HRESULT hr = E_FAIL;
 
     static float f = 0.0f;
-    f += 0.025f;
+    f += 0.01f;
 
     // 行列
     D3DXMATRIX World, View, Proj, WVP;
@@ -227,7 +227,7 @@ void Render()
                                (float)WINDOW_SIZE_W / WINDOW_SIZE_H,
                                1.0f, 10000.0f);
 
-    D3DXVECTOR3 eye(5 * sinf(f), 3, -5 * cosf(f));
+    D3DXVECTOR3 eye(4.f * sinf(f), 2.5f, -4.f * cosf(f));
     D3DXVECTOR3 at(0, 0, 0);
     D3DXVECTOR3 up(0, 1, 0);
     D3DXMatrixLookAtLH(&View, &eye, &at, &up);
