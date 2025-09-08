@@ -11,8 +11,8 @@ float g_parallaxScale = 0.04f; // 0.02〜0.06
 float g_parallaxBias = -0.5f * 0.04;
 
 // Lighting (拡散のみ)
-float3 g_ambientColor = float3(0.45, 0.45, 0.45);
-float3 g_lightColor = float3(2.0, 2.0, 2.0);
+float3 g_ambientColor = float3(0.25, 0.25, 0.25);
+float3 g_lightColor = float3(1.5, 1.5, 1.5);
 float g_diffuseGain = 2.0;
 
 // UV/Normal 調整トグル
