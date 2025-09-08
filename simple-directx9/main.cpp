@@ -227,7 +227,7 @@ void Render()
                                (float)WINDOW_SIZE_W / WINDOW_SIZE_H,
                                1.0f, 10000.0f);
 
-    D3DXVECTOR3 eye(4.f * sinf(f), 2.5f, -4.f * cosf(f));
+    D3DXVECTOR3 eye(3.f * sinf(f), 2.f, -3.f * cosf(f));
     D3DXVECTOR3 at(0, 0, 0);
     D3DXVECTOR3 up(0, 1, 0);
     D3DXMatrixLookAtLH(&View, &eye, &at, &up);
