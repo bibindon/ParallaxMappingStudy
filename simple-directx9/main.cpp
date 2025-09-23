@@ -219,6 +219,9 @@ void Render()
     static float f = 0.0f;
     f += 0.01f;
 
+    static float f2 = 0.0f;
+    f2 += 0.02f;
+
     // 行列
     D3DXMATRIX World, View, Proj, WVP;
     D3DXMatrixIdentity(&World);
@@ -253,7 +256,7 @@ void Render()
     D3DXVECTOR4 eyePos(eye.x, eye.y, eye.z, 1.0f);
     g_pEffect->SetVector("g_eyePos", &eyePos);
 
-    D3DXVECTOR4 lightDir = D3DXVECTOR4(2.0f, -3.0f, 1.0f, 0.0f); // ワールド方向
+    D3DXVECTOR4 lightDir = D3DXVECTOR4(1.0f * sinf(f2), 1.0f * sinf(f2), 1.0f * cosf(f2), 0.0f); // ワールド方向
     D3DXVec4Normalize(&lightDir, &lightDir);
     g_pEffect->SetVector("g_lightDirWorld", &lightDir);
 
