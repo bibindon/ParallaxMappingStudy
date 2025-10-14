@@ -1,23 +1,15 @@
-// simple.fx — Parallax Mapping (RGB または DXT5nm 法線対応)
-// UTF-8 (no BOM)
 
-//==============================
-// 行列・定数
-//==============================
-float4x4 g_matWorldViewProj;
 float4x4 g_matWorld;
+float4x4 g_matWorldViewProj;
 
-float4 g_eyePos; // world
-float4 g_lightDirWorld; // world の「光線の向き」。Lambert では -L を使用
+float4 g_eyePos;
+float4 g_lightDirWorld;
 
-// Parallax
-float g_parallaxScale = 0.04f; // 0.02〜0.06 程度で調整
+float g_parallaxScale = 0.04f;
 float g_parallaxBias = -0.5f * 0.04f;
 
-// 照明（拡散のみ）
-float3 g_ambientColor = float3(0.25, 0.25, 0.25);
-float3 g_lightColor = float3(1.5, 1.5, 1.5);
-float g_diffuseGain = 2.0;
+float3 g_ambientColor = float3(0.5, 0.5, 0.5);
+float3 g_lightColor = float3(1.0, 1.0, 1.0);
 
 // 法線テクスチャのエンコード方式（0=RGB、1=DXT5nm[A=nx,G=ny]）
 float g_normalEncoding = 0.0;
@@ -171,7 +163,7 @@ float4 PS(VSOut i) : COLOR
     // Lambert（光線の向き Lw に対して -Lw を使用）
     float3 Lw = normalize(g_lightDirWorld.xyz);
     float NdotL = saturate(dot(nW, -Lw));
-    float3 diff = g_lightColor * (NdotL * g_diffuseGain);
+    float3 diff = g_lightColor * NdotL;
 
     float3 color = albedo * (g_ambientColor + diff);
     return float4(saturate(color), 1.0);
