@@ -4,8 +4,8 @@ float4x4 g_matWorldViewProj;
 float4 g_eyePos;
 float4 g_lightDirWorld;
 
-float g_parallaxScale = 0.04f;
-float g_parallaxBias = -0.5f * 0.04f;
+float g_parallaxScale = 0.08f;
+float g_parallaxBias = -1.0f * 0.04f;
 
 float3 g_ambientColor = float3(0.5, 0.5, 0.5);
 float3 g_lightColor = float3(1.0, 1.0, 1.0);
@@ -68,20 +68,22 @@ void PS(float3 inWorldPos  : TEXCOORD0,
 
         out float4 outColor: COLOR0)
 {
-    // TBN と view（tangent space）
     float3 tangentVec, binormalVec, normWorld;
-    BuildTBN(inWorldPos, inWorldNorm, inUV, tangentVec, binormalVec, normWorld);
-    float3x3 tbnMatrix = float3x3(tangentVec, binormalVec, normWorld);
+
+    BuildTBN(inWorldPos, inWorldNorm, inUV,
+             tangentVec, binormalVec, normWorld);
+
+    float3x3 TBNMatrix = float3x3(tangentVec, binormalVec, normWorld);
 
     float3 viewDirWorld = g_eyePos.xyz - inWorldPos;
-    float3 viewDirTS = normalize(mul(viewDirWorld, transpose(tbnMatrix)));
+    float3 viewDirTangentSpace = normalize(mul(viewDirWorld, transpose(TBNMatrix)));
 
     // Parallax UV オフセット
     float height = tex2D(sHeight, inUV).r;
     float parallaxAmt = height * g_parallaxScale + g_parallaxBias;
-    float2 uvParallax = inUV + parallaxAmt * (viewDirTS.xy / max(abs(viewDirTS.z), 1e-3));
+    float2 uvParallax = inUV + parallaxAmt * (viewDirTangentSpace.xy / max(abs(viewDirTangentSpace.z), 0.001f));
 
-    // サンプルと簡易 Lambert 照明
+    // Lambert Lighting
     float3 albedo = tex2D(sColor, uvParallax).rgb;
 
     float3 lightDirWorld = normalize(g_lightDirWorld.xyz);
@@ -112,7 +114,17 @@ void BuildTBN(float3 worldPos,
     tangentVec = normalize(rawTan - normWorld * dot(normWorld, rawTan));
 
     float signFlag = dot(cross(normWorld, tangentVec), normalize(rawBin));
-    float handedness = (signFlag < 0.0) ? -1.0 : 1.0;
+
+    float handedness = 0.f;
+    if (signFlag < 0.0)
+    {
+        handedness = -1.0;
+    }
+    else
+    {
+        handedness = 1.0;
+    }
+
     binormalVec = normalize(cross(normWorld, tangentVec)) * handedness;
 }
 

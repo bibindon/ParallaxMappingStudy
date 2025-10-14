@@ -254,9 +254,6 @@ void Render()
     D3DXVec4Normalize(&lightDir, &lightDir);
     g_pEffect->SetVector("g_lightDirWorld", &lightDir);
 
-    g_pEffect->SetFloat("g_parallaxScale", 0.04f); // 0.02〜0.06 で調整
-    g_pEffect->SetFloat("g_parallaxBias", -0.02f); // 通常 -0.5*scale
-
     g_pEffect->SetTexture("g_texHeight", g_pHeightTex);
 
     g_pEffect->SetTechnique("Technique_Parallax");
