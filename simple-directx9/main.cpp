@@ -28,7 +28,6 @@ DWORD g_dwNumMaterials = 0;
 LPD3DXEFFECT g_pEffect = NULL;
 bool g_bClose = false;
 
-// 追加：法線＆高さマップ
 LPDIRECT3DTEXTURE9 g_pNormalTex = NULL;
 LPDIRECT3DTEXTURE9 g_pHeightTex = NULL;
 
@@ -38,7 +37,12 @@ static void Cleanup();
 static void Render();
 LRESULT WINAPI MsgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-int WINAPI _tWinMain(_In_ HINSTANCE hInstance,
+extern int WINAPI wWinMain(_In_ HINSTANCE hInstance,
+                           _In_opt_ HINSTANCE hPrevInstance,
+                           _In_ LPTSTR lpCmdLine,
+                           _In_ int nCmdShow);
+
+int WINAPI wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
                      _In_ LPTSTR lpCmdLine,
                      _In_ int nCmdShow)
@@ -89,7 +93,8 @@ int WINAPI _tWinMain(_In_ HINSTANCE hInstance,
     MSG msg;
     while (true)
     {
-        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+        {
             DispatchMessage(&msg);
         }
         else {
@@ -135,23 +140,39 @@ void InitD3D(HWND hWnd)
     hr = g_pD3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd,
                               D3DCREATE_HARDWARE_VERTEXPROCESSING,
                               &d3dpp, &g_pd3dDevice);
-    if (FAILED(hr)) {
+    if (FAILED(hr))
+    {
         hr = g_pD3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd,
                                   D3DCREATE_SOFTWARE_VERTEXPROCESSING,
                                   &d3dpp, &g_pd3dDevice);
         assert(hr == S_OK);
     }
 
-    hr = D3DXCreateFont(g_pd3dDevice, 20, 0, FW_HEAVY, 1, FALSE,
-                        SHIFTJIS_CHARSET, OUT_TT_ONLY_PRECIS,
-                        CLEARTYPE_NATURAL_QUALITY, FF_DONTCARE,
-                        _T("ＭＳ ゴシック"), &g_pFont);
+    hr = D3DXCreateFont(g_pd3dDevice,
+                        20,
+                        0,
+                        FW_HEAVY,
+                        1,
+                        FALSE,
+                        SHIFTJIS_CHARSET,
+                        OUT_TT_ONLY_PRECIS,
+                        CLEARTYPE_NATURAL_QUALITY,
+                        FF_DONTCARE,
+                        _T("ＭＳ ゴシック"),
+                        &g_pFont);
+
     assert(hr == S_OK);
 
-    // cube.x を読み込み
     LPD3DXBUFFER pMtrlBuf = NULL;
-    hr = D3DXLoadMeshFromX(_T("cube.x"), D3DXMESH_SYSTEMMEM, g_pd3dDevice,
-                           NULL, &pMtrlBuf, NULL, &g_dwNumMaterials, &g_pMesh);
+    hr = D3DXLoadMeshFromX(_T("cube.x"),
+                           D3DXMESH_SYSTEMMEM,
+                           g_pd3dDevice,
+                           NULL,
+                           &pMtrlBuf,
+                           NULL,
+                           &g_dwNumMaterials,
+                           &g_pMesh);
+
     assert(hr == S_OK);
 
     D3DXMATERIAL* mats = (D3DXMATERIAL*)pMtrlBuf->GetBufferPointer();
@@ -167,36 +188,27 @@ void InitD3D(HWND hWnd)
         std::string path(mats[i].pTextureFilename);
         if (!path.empty())
         {
-#ifndef UNICODE
             hr = D3DXCreateTextureFromFileA(g_pd3dDevice, path.c_str(), &g_pTextures[i]);
-#else
-            int len = MultiByteToWideChar(CP_ACP, 0, path.c_str(), -1, nullptr, 0);
-            std::wstring wpath(len, 0);
-            MultiByteToWideChar(CP_ACP, 0, path.c_str(), -1, &wpath[0], len);
-            hr = D3DXCreateTextureFromFileW(g_pd3dDevice, wpath.c_str(), &g_pTextures[i]);
-#endif
             assert(hr == S_OK);
         }
     }
     pMtrlBuf->Release();
 
-    // Parallax 用テクスチャ（同フォルダに normalMap.png / bumpMap.png を置く）
-#ifndef UNICODE
-    hr = D3DXCreateTextureFromFileA(g_pd3dDevice, "normalMap.png", &g_pNormalTex);
+    hr = D3DXCreateTextureFromFile(g_pd3dDevice, L"normalMap.png", &g_pNormalTex);
     assert(hr == S_OK);
-    hr = D3DXCreateTextureFromFileA(g_pd3dDevice, "bumpMap.png", &g_pHeightTex);
+
+    hr = D3DXCreateTextureFromFile(g_pd3dDevice, L"bumpMap.png", &g_pHeightTex);
     assert(hr == S_OK);
-#else
-    hr = D3DXCreateTextureFromFileW(g_pd3dDevice, L"normalMap.png", &g_pNormalTex);
-    assert(hr == S_OK);
-    hr = D3DXCreateTextureFromFileW(g_pd3dDevice, L"bumpMap.png", &g_pHeightTex);
-    assert(hr == S_OK);
-#endif
 
     // エフェクト
-    hr = D3DXCreateEffectFromFile(g_pd3dDevice, _T("simple.fx"),
-                                  NULL, NULL, D3DXSHADER_DEBUG,
-                                  NULL, &g_pEffect, NULL);
+    hr = D3DXCreateEffectFromFile(g_pd3dDevice,
+                                  _T("simple.fx"),
+                                  NULL,
+                                  NULL,
+                                  D3DXSHADER_DEBUG,
+                                  NULL,
+                                  &g_pEffect,
+                                  NULL);
     assert(hr == S_OK);
 }
 
@@ -246,7 +258,7 @@ void Render()
     hr = g_pd3dDevice->BeginScene(); assert(hr == S_OK);
 
     //TextDraw(g_pFont, _T("Parallax Mapping Sample"), 8, 8);
-    TCHAR temp[12];
+//    TCHAR temp[12];
 //    TextDraw(g_pFont, temp, 8, 8);
 
     // エフェクト定数
