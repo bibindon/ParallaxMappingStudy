@@ -1,4 +1,3 @@
-
 float4x4 g_matWorld;
 float4x4 g_matWorldViewProj;
 
@@ -17,7 +16,7 @@ float3 g_lightColor = float3(1.0, 1.0, 1.0);
 texture g_texColor;
 texture g_texHeight; // height (R)
 
-sampler2D sColor = sampler_state
+sampler2D sColor
 {
     Texture = <g_texColor>;
     MinFilter = LINEAR;
@@ -27,7 +26,7 @@ sampler2D sColor = sampler_state
     AddressV = WRAP;
 };
 
-sampler2D sHeight = sampler_state
+sampler2D sHeight
 {
     Texture = <g_texHeight>;
     MinFilter = LINEAR;
@@ -38,88 +37,96 @@ sampler2D sHeight = sampler_state
 };
 
 //==============================
-// 頂点 I/O
+// Vertex Shader（in/out 形式）
+// 出力: POSITION0, TEXCOORD0=worldPos, TEXCOORD1=worldNorm, TEXCOORD2=uv
 //==============================
-struct VSIn
-{
-    float4 pos : POSITION;
-    float3 normal : NORMAL0;
-    float2 uv : TEXCOORD0;
-};
+void VS(float4 inPos            : POSITION0,
+        float3 inNormal         : NORMAL0,
+        float2 inUV             : TEXCOORD0,
 
-struct VSOut
+        out float4 outPos       : POSITION0,
+        out float3 outWorldPos  : TEXCOORD0,
+        out float3 outWorldNorm : TEXCOORD1,
+        out float2 outUV        : TEXCOORD2)
 {
-    float4 pos : POSITION;
-    float3 wp : TEXCOORD0; // world position
-    float3 wn : TEXCOORD1; // world normal
-    float2 uv : TEXCOORD2;
-};
+    outPos = mul(inPos, g_matWorldViewProj);
+    outWorldPos = mul(inPos, g_matWorld).xyz;
 
-//==============================
-// VS
-//==============================
-VSOut VS(VSIn v)
-{
-    VSOut o;
-    o.pos = mul(v.pos, g_matWorldViewProj);
-    o.wp = mul(v.pos, g_matWorld).xyz;
     // 等方スケール前提（非等方スケールなら逆転置行列を使用）
-    o.wn = normalize(mul(v.normal, (float3x3) g_matWorld));
-    o.uv = v.uv;
-    return o;
+    float3x3 world3x3 = (float3x3) g_matWorld;
+    outWorldNorm = normalize(mul(inNormal, world3x3));
+
+    outUV = inUV;
 }
 
 //==============================
 // TBN 構築（右手系を保証）
 //==============================
-void BuildTBN(float3 P, float3 N, float2 uv, out float3 T, out float3 B, out float3 Nn)
-{
-    float3 dp1 = ddx(P);
-    float3 dp2 = ddy(P);
-    float2 du1 = ddx(uv);
-    float2 du2 = ddy(uv);
+void BuildTBN(float3 worldPos,
+              float3 worldNorm,
+              float2 uv,
 
-    float3 tRaw = dp1 * du2.y - dp2 * du1.y;
-    float3 bRaw = dp2 * du1.x - dp1 * du2.x;
-
-    Nn = normalize(N);
-    T = normalize(tRaw - Nn * dot(Nn, tRaw)); // N に直交化
-    float sign = (dot(cross(Nn, T), normalize(bRaw)) < 0.0) ? -1.0 : 1.0;
-    B = normalize(cross(Nn, T)) * sign; // 右手系を維持
-}
+              out float3 tangentVec,
+              out float3 binormalVec,
+              out float3 normWorld);
 
 //==============================
-// PS
+// Pixel Shader（in/out 形式）
 //==============================
-float4 PS(VSOut i) : COLOR
+void PS(float3 inWorldPos  : TEXCOORD0,
+        float3 inWorldNorm : TEXCOORD1,
+        float2 inUV        : TEXCOORD2,
+
+        out float4 outColor: COLOR0)
 {
-    // UV 反転
-    float2 baseUV;
-    baseUV.x = i.uv.x;
-    baseUV.y = i.uv.y;
+    float2 baseUV = inUV;
 
     // TBN と view（tangent space）
-    float3 T, B, Nw;
-    BuildTBN(i.wp, i.wn, baseUV, T, B, Nw);
-    float3x3 TBN = float3x3(T, B, Nw);
+    float3 tangentVec, binormalVec, normWorld;
+    BuildTBN(inWorldPos, inWorldNorm, baseUV, tangentVec, binormalVec, normWorld);
+    float3x3 tbnMatrix = float3x3(tangentVec, binormalVec, normWorld);
 
-    float3 Vw = g_eyePos.xyz - i.wp;
-    float3 Vts = normalize(mul(Vw, transpose(TBN)));
+    float3 viewDirWorld = g_eyePos.xyz - inWorldPos;
+    float3 viewDirTS = normalize(mul(viewDirWorld, transpose(tbnMatrix)));
 
     // Parallax UV オフセット
-    float h = tex2D(sHeight, baseUV).r;
-    float2 uvP = baseUV + (h * g_parallaxScale + g_parallaxBias) * (Vts.xy / max(abs(Vts.z), 1e-3));
+    float height = tex2D(sHeight, baseUV).r;
+    float parallaxAmt = height * g_parallaxScale + g_parallaxBias;
+    float2 uvParallax = baseUV + parallaxAmt * (viewDirTS.xy / max(abs(viewDirTS.z), 1e-3));
 
-    // サンプル
-    float3 albedo = tex2D(sColor, uvP).rgb;
+    // サンプルと簡易 Lambert 照明
+    float3 albedo = tex2D(sColor, uvParallax).rgb;
 
-    // Lambert（光線の向き Lw に対して -Lw を使用）
-    float3 Lw = normalize(g_lightDirWorld.xyz);
-    float NdotL = saturate(dot(i.wn, -Lw));
-    float3 diff = g_lightColor * NdotL;
+    float3 lightDirWorld = normalize(g_lightDirWorld.xyz);
+    float nDotL = saturate(dot(normWorld, -lightDirWorld));
+    float3 diffuse = g_lightColor * nDotL;
 
-    float3 color = albedo * (g_ambientColor + diff);
-    return float4(saturate(color), 1.0);
+    float3 color = albedo * (g_ambientColor + diffuse);
+    outColor = float4(saturate(color), 1.0);
+}
+
+void BuildTBN(float3 worldPos,
+              float3 worldNorm,
+              float2 uv,
+
+              out float3 tangentVec,
+              out float3 binormalVec,
+              out float3 normWorld)
+{
+    float3 ddxPos = ddx(worldPos);
+    float3 ddyPos = ddy(worldPos);
+    float2 ddxUV = ddx(uv);
+    float2 ddyUV = ddy(uv);
+
+    float3 rawTan = ddxPos * ddyUV.y - ddyPos * ddxUV.y;
+    float3 rawBin = ddyPos * ddxUV.x - ddxPos * ddyUV.x;
+
+    normWorld = normalize(worldNorm);
+    tangentVec = normalize(rawTan - normWorld * dot(normWorld, rawTan));
+
+    float signFlag = dot(cross(normWorld, tangentVec), normalize(rawBin));
+    float handedness = (signFlag < 0.0) ? -1.0 : 1.0;
+    binormalVec = normalize(cross(normWorld, tangentVec)) * handedness;
 }
 
 //==============================
