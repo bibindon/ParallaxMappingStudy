@@ -28,7 +28,6 @@ DWORD g_dwNumMaterials = 0;
 LPD3DXEFFECT g_pEffect = NULL;
 bool g_bClose = false;
 
-LPDIRECT3DTEXTURE9 g_pNormalTex = NULL;
 LPDIRECT3DTEXTURE9 g_pHeightTex = NULL;
 
 static void TextDraw(LPD3DXFONT pFont, TCHAR* text, int X, int Y);
@@ -194,9 +193,6 @@ void InitD3D(HWND hWnd)
     }
     pMtrlBuf->Release();
 
-    hr = D3DXCreateTextureFromFile(g_pd3dDevice, L"normalMap.png", &g_pNormalTex);
-    assert(hr == S_OK);
-
     hr = D3DXCreateTextureFromFile(g_pd3dDevice, L"bumpMap.png", &g_pHeightTex);
     assert(hr == S_OK);
 
@@ -215,7 +211,6 @@ void InitD3D(HWND hWnd)
 void Cleanup()
 {
     for (auto& t : g_pTextures) SAFE_RELEASE(t);
-    SAFE_RELEASE(g_pNormalTex);
     SAFE_RELEASE(g_pHeightTex);
     SAFE_RELEASE(g_pMesh);
     SAFE_RELEASE(g_pEffect);
@@ -275,7 +270,6 @@ void Render()
     g_pEffect->SetFloat("g_parallaxScale", 0.04f); // 0.02〜0.06 で調整
     g_pEffect->SetFloat("g_parallaxBias", -0.02f); // 通常 -0.5*scale
 
-    g_pEffect->SetTexture("g_texNormal", g_pNormalTex);
     g_pEffect->SetTexture("g_texHeight", g_pHeightTex);
 
     g_pEffect->SetTechnique("Technique_Parallax");

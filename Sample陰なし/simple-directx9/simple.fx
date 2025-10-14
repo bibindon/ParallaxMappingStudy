@@ -14,17 +14,10 @@ float3 g_lightColor = float3(1.0, 1.0, 1.0);
 // 法線テクスチャのエンコード方式（0=RGB、1=DXT5nm[A=nx,G=ny]）
 float g_normalEncoding = 0.0;
 
-// UV/Normal 反転トグル
-float g_flipU = 0.0; // 1 で U 反転
-float g_flipV = 0.0; // 1 で V 反転
-float g_flipRed = 0.0; // 1 で法線 X 反転
-float g_flipGreen = 0.0; // 1 で法線 Y 反転
-
 //==============================
 // テクスチャ
 //==============================
 texture g_texColor;
-texture g_texNormal; // tangent-space normal
 texture g_texHeight; // height (R)
 
 sampler2D sColor = sampler_state
@@ -36,15 +29,7 @@ sampler2D sColor = sampler_state
     AddressU = WRAP;
     AddressV = WRAP;
 };
-sampler2D sNormal = sampler_state
-{
-    Texture = <g_texNormal>;
-    MinFilter = LINEAR;
-    MagFilter = LINEAR;
-    MipFilter = LINEAR;
-    AddressU = WRAP;
-    AddressV = WRAP;
-};
+
 sampler2D sHeight = sampler_state
 {
     Texture = <g_texHeight>;
@@ -107,40 +92,14 @@ void BuildTBN(float3 P, float3 N, float2 uv, out float3 T, out float3 B, out flo
 }
 
 //==============================
-// 法線デコード
-//   g_normalEncoding=0: RGB (rgb*2-1)
-//   g_normalEncoding=1: DXT5nm (A=nx, G=ny, z は再構成)
-//==============================
-float3 DecodeNormal(float4 t)
-{
-    float3 n;
-    if (g_normalEncoding > 0.5)
-    {
-        float nx = t.a * 2.0 - 1.0;
-        float ny = t.g * 2.0 - 1.0;
-        nx = lerp(nx, -nx, saturate(g_flipRed));
-        ny = lerp(ny, -ny, saturate(g_flipGreen));
-        float nz = sqrt(saturate(1.0 - nx * nx - ny * ny));
-        n = float3(nx, ny, nz);
-    }
-    else
-    {
-        n = t.rgb * 2.0 - 1.0;
-        n.x = lerp(n.x, -n.x, saturate(g_flipRed));
-        n.y = lerp(n.y, -n.y, saturate(g_flipGreen));
-    }
-    return normalize(n);
-}
-
-//==============================
 // PS
 //==============================
 float4 PS(VSOut i) : COLOR
 {
     // UV 反転
     float2 baseUV;
-    baseUV.x = lerp(i.uv.x, 1.0 - i.uv.x, saturate(g_flipU));
-    baseUV.y = lerp(i.uv.y, 1.0 - i.uv.y, saturate(g_flipV));
+    baseUV.x = i.uv.x;
+    baseUV.y = i.uv.y;
 
     // TBN と view（tangent space）
     float3 T, B, Nw;
@@ -156,13 +115,10 @@ float4 PS(VSOut i) : COLOR
 
     // サンプル
     float3 albedo = tex2D(sColor, uvP).rgb;
-    float4 nTex = tex2D(sNormal, uvP);
-    float3 nTS = DecodeNormal(nTex);
-    float3 nW = normalize(mul(nTS, TBN));
 
     // Lambert（光線の向き Lw に対して -Lw を使用）
     float3 Lw = normalize(g_lightDirWorld.xyz);
-    float NdotL = saturate(dot(nW, -Lw));
+    float NdotL = saturate(dot(i.wn, -Lw));
     float3 diff = g_lightColor * NdotL;
 
     float3 color = albedo * (g_ambientColor + diff);
