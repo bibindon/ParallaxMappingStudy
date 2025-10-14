@@ -60,7 +60,7 @@ void BuildTBN(float3 worldPos,
 
               out float3 tangentVec,
               out float3 binormalVec,
-              out float3 normWorld);
+              out float3 normalizedNormWorld);
 
 void PS(float3 inWorldPos  : TEXCOORD0,
         float3 inWorldNorm : TEXCOORD1,
@@ -68,12 +68,12 @@ void PS(float3 inWorldPos  : TEXCOORD0,
 
         out float4 outColor: COLOR0)
 {
-    float3 tangentVec, binormalVec, normWorld;
+    float3 tangentVec, binormalVec, normalizedNormWorld;
 
     BuildTBN(inWorldPos, inWorldNorm, inUV,
-             tangentVec, binormalVec, normWorld);
+             tangentVec, binormalVec, normalizedNormWorld);
 
-    float3x3 TBNMatrix = float3x3(tangentVec, binormalVec, normWorld);
+    float3x3 TBNMatrix = float3x3(tangentVec, binormalVec, normalizedNormWorld);
 
     float3 viewDirWorld = g_eyePos.xyz - inWorldPos;
     float3 viewDirTangentSpace = normalize(mul(viewDirWorld, transpose(TBNMatrix)));
@@ -87,9 +87,8 @@ void PS(float3 inWorldPos  : TEXCOORD0,
     float3 albedo = tex2D(sColor, uvParallax).rgb;
 
     float3 lightDirWorld = normalize(g_lightDirWorld.xyz);
-    float nDotL = saturate(dot(normWorld, -lightDirWorld));
+    float nDotL = saturate(dot(normalizedNormWorld, -lightDirWorld));
     float3 diffuse = g_lightColor * nDotL;
-
     float3 color = albedo * (g_ambientColor + diffuse);
     outColor = float4(saturate(color), 1.0);
 }
@@ -100,7 +99,7 @@ void BuildTBN(float3 worldPos,
 
               out float3 tangentVec,
               out float3 binormalVec,
-              out float3 normWorld)
+              out float3 normalizedNormWorld)
 {
     float3 ddxPos = ddx(worldPos);
     float3 ddyPos = ddy(worldPos);
@@ -110,10 +109,10 @@ void BuildTBN(float3 worldPos,
     float3 rawTan = ddxPos * ddyUV.y - ddyPos * ddxUV.y;
     float3 rawBin = ddyPos * ddxUV.x - ddxPos * ddyUV.x;
 
-    normWorld = normalize(worldNorm);
-    tangentVec = normalize(rawTan - normWorld * dot(normWorld, rawTan));
+    normalizedNormWorld = normalize(worldNorm);
+    tangentVec = normalize(rawTan - normalizedNormWorld * dot(normalizedNormWorld, rawTan));
 
-    float signFlag = dot(cross(normWorld, tangentVec), normalize(rawBin));
+    float signFlag = dot(cross(normalizedNormWorld, tangentVec), normalize(rawBin));
 
     float handedness = 0.f;
     if (signFlag < 0.0)
@@ -125,7 +124,7 @@ void BuildTBN(float3 worldPos,
         handedness = 1.0;
     }
 
-    binormalVec = normalize(cross(normWorld, tangentVec)) * handedness;
+    binormalVec = normalize(cross(normalizedNormWorld, tangentVec)) * handedness;
 }
 
 //==============================
