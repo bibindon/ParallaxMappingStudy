@@ -10,11 +10,8 @@ float g_parallaxBias = -0.5f * 0.04f;
 float3 g_ambientColor = float3(0.5, 0.5, 0.5);
 float3 g_lightColor = float3(1.0, 1.0, 1.0);
 
-//==============================
-// テクスチャ
-//==============================
 texture g_texColor;
-texture g_texHeight; // height (R)
+texture g_texHeight;
 
 sampler2D sColor
 {
@@ -36,10 +33,6 @@ sampler2D sHeight
     AddressV = WRAP;
 };
 
-//==============================
-// Vertex Shader（in/out 形式）
-// 出力: POSITION0, TEXCOORD0=worldPos, TEXCOORD1=worldNorm, TEXCOORD2=uv
-//==============================
 void VS(float4 inPos            : POSITION0,
         float3 inNormal         : NORMAL0,
         float2 inUV             : TEXCOORD0,
@@ -52,16 +45,15 @@ void VS(float4 inPos            : POSITION0,
     outPos = mul(inPos, g_matWorldViewProj);
     outWorldPos = mul(inPos, g_matWorld).xyz;
 
-    // 等方スケール前提（非等方スケールなら逆転置行列を使用）
     float3x3 world3x3 = (float3x3) g_matWorld;
     outWorldNorm = normalize(mul(inNormal, world3x3));
 
     outUV = inUV;
 }
 
-//==============================
-// TBN 構築（右手系を保証）
-//==============================
+//-------------------------------------------------------------
+// TBN 構築
+//-------------------------------------------------------------
 void BuildTBN(float3 worldPos,
               float3 worldNorm,
               float2 uv,
@@ -70,29 +62,24 @@ void BuildTBN(float3 worldPos,
               out float3 binormalVec,
               out float3 normWorld);
 
-//==============================
-// Pixel Shader（in/out 形式）
-//==============================
 void PS(float3 inWorldPos  : TEXCOORD0,
         float3 inWorldNorm : TEXCOORD1,
         float2 inUV        : TEXCOORD2,
 
         out float4 outColor: COLOR0)
 {
-    float2 baseUV = inUV;
-
     // TBN と view（tangent space）
     float3 tangentVec, binormalVec, normWorld;
-    BuildTBN(inWorldPos, inWorldNorm, baseUV, tangentVec, binormalVec, normWorld);
+    BuildTBN(inWorldPos, inWorldNorm, inUV, tangentVec, binormalVec, normWorld);
     float3x3 tbnMatrix = float3x3(tangentVec, binormalVec, normWorld);
 
     float3 viewDirWorld = g_eyePos.xyz - inWorldPos;
     float3 viewDirTS = normalize(mul(viewDirWorld, transpose(tbnMatrix)));
 
     // Parallax UV オフセット
-    float height = tex2D(sHeight, baseUV).r;
+    float height = tex2D(sHeight, inUV).r;
     float parallaxAmt = height * g_parallaxScale + g_parallaxBias;
-    float2 uvParallax = baseUV + parallaxAmt * (viewDirTS.xy / max(abs(viewDirTS.z), 1e-3));
+    float2 uvParallax = inUV + parallaxAmt * (viewDirTS.xy / max(abs(viewDirTS.z), 1e-3));
 
     // サンプルと簡易 Lambert 照明
     float3 albedo = tex2D(sColor, uvParallax).rgb;
