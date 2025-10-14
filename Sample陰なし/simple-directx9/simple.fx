@@ -11,9 +11,6 @@ float g_parallaxBias = -0.5f * 0.04f;
 float3 g_ambientColor = float3(0.5, 0.5, 0.5);
 float3 g_lightColor = float3(1.0, 1.0, 1.0);
 
-// 法線テクスチャのエンコード方式（0=RGB、1=DXT5nm[A=nx,G=ny]）
-float g_normalEncoding = 0.0;
-
 //==============================
 // テクスチャ
 //==============================

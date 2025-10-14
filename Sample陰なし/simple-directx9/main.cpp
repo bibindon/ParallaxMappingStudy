@@ -108,15 +108,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance,
     return 0;
 }
 
-void TextDraw(LPD3DXFONT pFont, TCHAR* text, int X, int Y)
-{
-    RECT rect = { X, Y, 0, 0 };
-    HRESULT hResult = pFont->DrawText(NULL, text, -1, &rect,
-                                      DT_LEFT | DT_NOCLIP,
-                                      D3DCOLOR_ARGB(255, 0, 0, 0));
-    assert((int)hResult >= 0);
-}
-
 void InitD3D(HWND hWnd)
 {
     HRESULT hr = E_FAIL;
@@ -251,10 +242,6 @@ void Render()
     assert(hr == S_OK);
 
     hr = g_pd3dDevice->BeginScene(); assert(hr == S_OK);
-
-    //TextDraw(g_pFont, _T("Parallax Mapping Sample"), 8, 8);
-//    TCHAR temp[12];
-//    TextDraw(g_pFont, temp, 8, 8);
 
     // エフェクト定数
     g_pEffect->SetMatrix("g_matWorldViewProj", &WVP);
